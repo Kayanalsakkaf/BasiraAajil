@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basira Document Processing Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #f0f3ff;
+            border-color: #667eea;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .documents-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .document-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .document-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .document-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .document-filename {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-processing {
+            background: #fff4e5;
+            color: #ff9800;
+        }
+        
+        .status-completed {
+            background: #e8f5e9;
+            color: #4caf50;
+        }
+        
+        .status-failed {
+            background: #ffebee;
+            color: #f44336;
+        }
+        
+        .document-info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .pipeline-stages {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .stage {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        .stage.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .stage.completed {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .stage.failed {
+            background: #f44336;
+            color: white;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .close-btn {
+            cursor: pointer;
+            font-size: 24px;
+            color: #666;
+        }
+        
+        .detail-section {
+            margin-bottom: 25px;
+        }
+        
+        .detail-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .medallion-layers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .layer-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .layer-bronze { border-left: 4px solid #cd7f32; }
+        .layer-silver { border-left: 4px solid #c0c0c0; }
+        .layer-gold { border-left: 4px solid #ffd700; }
+        
+        .layer-name {
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Basira Document Processing Pipeline</h1>
+            <p class="subtitle">Event-driven document processing with AI classification, OCR extraction, and PII detection</p>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-docs">0</div>
+                <div class="stat-label">Total Documents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="completed-docs">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="processing-docs">0</div>
+                <div class="stat-label">Processing</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failed-docs">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+        </div>
+        
+        <div class="upload-section">
+            <h2 style="margin-bottom: 20px;">Upload Document</h2>
+            <div class="upload-area" id="uploadArea">
+                <div style="font-size: 48px; margin-bottom: 15px;">📄</div>
+                <p style="font-size: 16px; color: #666; margin-bottom: 10px;">
+                    Drag and drop a PDF file here, or click to browse
+                </p>
+                <p style="font-size: 14px; color: #999;">
+                    Supported: PDF files only
+                </p>
+                <input type="file" id="fileInput" accept=".pdf">
+            </div>
+        </div>
+        
+        <div class="documents-section">
+            <h2 style="margin-bottom: 20px;">Documents</h2>
+            <div id="documentsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading documents...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Document Details</h2>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+    
+    <script>
+        let pollInterval;
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+        
+        async function handleFileUpload(file) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('Please upload a PDF file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('Document uploaded successfully!');
+                    fileInput.value = '';
+                    loadDocuments();
+                } else {
+                    alert('Upload failed: ' + result.detail);
+                }
+            } catch (error) {
+                alert('Upload error: ' + error.message);
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('total-docs').textContent = stats.total_documents;
+                document.getElementById('completed-docs').textContent = stats.completed;
+                document.getElementById('processing-docs').textContent = stats.processing;
+                document.getElementById('failed-docs').textContent = stats.failed;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/api/documents');
+                const documents = await response.json();
+                
+                const list = document.getElementById('documentsList');
+                
+                if (documents.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>No documents uploaded yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                list.innerHTML = documents.map(doc => {
+                    const statusClass = doc.status === 'completed' ? 'status-completed' : 
+                                      doc.status === 'failed' ? 'status-failed' : 'status-processing';
+                    
+                    const stages = ['classify', 'extract', 'pii_detect', 'validate', 'lineage', 'medallion'];
+                    const currentStageIndex = stages.indexOf(doc.current_stage);
+                    
+                    return `
+                        <div class="document-card" onclick="showDetails('${doc.document_id}')">
+                            <div class="document-header">
+                                <div class="document-filename">${doc.filename}</div>
+                                <span class="status-badge ${statusClass}">${doc.status.toUpperCase()}</span>
+                            </div>
+                            <div class="document-info">
+                                <span><strong>Type:</strong> ${doc.document_type || 'Unknown'}</span>
+                                <span><strong>Stage:</strong> ${doc.current_stage}</span>
+                                <span><strong>Uploaded:</strong> ${new Date(doc.upload_timestamp).toLocaleString()}</span>
+                            </div>
+                            <div class="pipeline-stages">
+                                ${stages.map((stage, i) => {
+                                    let stageClass = '';
+                                    if (i < currentStageIndex || doc.status === 'completed') {
+                                        stageClass = 'completed';
+                                    } else if (i === currentStageIndex && doc.status === 'processing') {
+                                        stageClass = 'active';
+                                    } else if (doc.status === 'failed' && i === currentStageIndex) {
+                                        stageClass = 'failed';
+                                    }
+                                    return `<div class="stage ${stageClass}">${stage}</div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                loadStats();
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                document.getElementById('documentsList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Error loading documents</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function showDetails(documentId) {
+            try {
+                const response = await fetch(`/api/documents/${documentId}`);
+                const details = await response.json();
+                
+                const modalBody = document.getElementById('modalBody');
+                modalBody.innerHTML = `
+                    <div class="detail-section">
+                        <div class="detail-title">Document Information</div>
+                        <div class="code-block">${JSON.stringify({
+                            filename: details.document.filename,
+                            type: details.document.document_type,
+                            status: details.document.status,
+                            current_stage: details.document.current_stage,
+                            uploaded: details.document.upload_timestamp
+                        }, null, 2)}</div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <div class="detail-title">Pipeline Stages</div>
+                        ${details.stages.map(stage => `
+                            <div style="margin-bottom: 15px;">
+                                <strong>${stage.stage_name}</strong> - ${stage.status}
+                                ${stage.confidence_score ? `<span style="color: #667eea;"> (Confidence: ${(stage.confidence_score * 100).toFixed(1)}%)</span>` : ''}
+                                ${stage.output_data ? `<div class="code-block" style="margin-top: 10px;">${JSON.stringify(stage.output_data, null, 2)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="detail-section">
+                        <div class="detail-title">Medallion Architecture Layers</div>
+                        <div class="medallion-layers">
+                            ${details.medallion_layers.bronze ? `
+                                <div class="layer-card layer-bronze">
+                                    <div class="layer-name">Bronze Layer</div>
+                                    <div class="code-block">${JSON.stringify(details.medallion_layers.bronze, null, 2)}</div>
+                                </div>
+                            ` : ''}
+                            ${details.medallion_layers.silver ? `
+                                <div class="layer-card layer-silver">
+                                    <div class="layer-name">Silver Layer</div>
+                                    <div class="code-block">${JSON.stringify(details.medallion_layers.silver, null, 2)}</div>
+                                </div>
+                            ` : ''}
+                            ${details.medallion_layers.gold ? `
+                                <div class="layer-card layer-gold">
+                                    <div class="layer-name">Gold Layer</div>
+                                    <div class="code-block">${JSON.stringify(details.medallion_layers.gold, null, 2)}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <div class="detail-title">Lineage & Audit Trail</div>
+                        ${details.lineage.map(log => `
+                            <div style="margin-bottom: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px;">
+                                <strong>${log.event_type}</strong> - ${new Date(log.timestamp).toLocaleString()}
+                                ${log.classification_model ? `<br><small>Classification: ${log.classification_model}</small>` : ''}
+                                ${log.extraction_model ? `<br><small>Extraction: ${log.extraction_model}</small>` : ''}
+                                ${log.validation_version ? `<br><small>Validation: ${log.validation_version}</small>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                document.getElementById('detailModal').classList.add('show');
+            } catch (error) {
+                console.error('Error loading details:', error);
+                alert('Error loading document details');
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('show');
+        }
+        
+        loadDocuments();
+        pollInterval = setInterval(loadDocuments, 3000);
+    </script>
+</body>
+</html>
